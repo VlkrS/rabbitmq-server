@@ -61,7 +61,7 @@ vhost_store_pid(VHost, Type) ->
         [] ->
             %% Fall back to using the supervisor (sometimes necessary on queue startup).
             {ok, VHostSup} = rabbit_vhost_sup_sup:get_vhost_sup(VHost),
-            case supervisor2:find_child(VHostSup, Type) of
+            case rabbit_misc:find_child(VHostSup, Type) of
                 [Pid] -> Pid;
                 []    -> no_pid
             end;

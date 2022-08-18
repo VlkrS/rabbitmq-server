@@ -10,7 +10,7 @@
 
 -include("amqp_client.hrl").
 
--behaviour(supervisor2).
+-behaviour(supervisor).
 
 -export([start_link/1]).
 -export([init/1]).
@@ -20,22 +20,42 @@
 %%---------------------------------------------------------------------------
 
 start_link(AMQPParams) ->
-    {ok, Sup} = supervisor2:start_link(?MODULE, []),
-    {ok, TypeSup}    = supervisor2:start_child(
-                         Sup, {connection_type_sup,
-                               {amqp_connection_type_sup, start_link, []},
-                               transient, ?SUPERVISOR_WAIT, supervisor,
-                               [amqp_connection_type_sup]}),
-    {ok, Connection} = supervisor2:start_child(
-                         Sup, {connection, {amqp_gen_connection, start_link,
-                                            [TypeSup, AMQPParams]},
-                               intrinsic, brutal_kill, worker,
-                               [amqp_gen_connection]}),
+    {ok, Sup} = supervisor:start_link(?MODULE, []),
+    {ok, TypeSup} = supervisor:start_child(
+        Sup, #{
+            id => connection_type_sup,
+            start => {amqp_connection_type_sup, start_link, []},
+            restart => transient,
+            shutdown => ?SUPERVISOR_WAIT,
+            type => supervisor,
+            modules => [amqp_connection_type_sup]
+        }
+    ),
+    {ok, Connection} = supervisor:start_child(
+        Sup, #{
+            id => connection,
+            start => {amqp_gen_connection, start_link, [TypeSup, AMQPParams]},
+            restart => transient,
+            significant => true,
+            shutdown => brutal_kill,
+            type => worker,
+            modules => [amqp_gen_connection]
+        }
+    ),
     {ok, Sup, Connection}.
 
 %%---------------------------------------------------------------------------
-%% supervisor2 callbacks
+%% supervisor callbacks
 %%---------------------------------------------------------------------------
 
 init([]) ->
-    {ok, {{one_for_all, 0, 1}, []}}.
+    {ok,
+        {
+            #{
+                strategy => one_for_all,
+                intensity => 0,
+                period => 1,
+                auto_shutdown => any_significant
+            },
+            []
+        }}.
