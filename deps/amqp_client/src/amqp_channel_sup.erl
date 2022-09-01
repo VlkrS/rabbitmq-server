@@ -77,24 +77,10 @@ init_command_assembler(network) -> rabbit_command_assembler:init(?PROTOCOL).
 %%---------------------------------------------------------------------------
 
 init([{ConsumerModule, ConsumerArgs}, Identity]) ->
-    {ok,
-        {
-            #{
-                strategy => one_for_all,
-                intensity => 0,
-                period => 1,
-                auto_shutdown => any_significant
-            },
-            [
-                #{
-                    id => gen_consumer,
-                    start =>
-                        {amqp_gen_consumer, start_link, [ConsumerModule, ConsumerArgs, Identity]},
-                    restart => transient,
-                    significant => true,
-                    shutdown => ?WORKER_WAIT,
-                    type => worker,
-                    modules => [amqp_gen_consumer]
-                }
-            ]
-        }}.
+    SupFlags = #{strategy => one_for_all, intensity => 0,
+                 period => 1, auto_shutdown => any_significant},
+    ChildStartMFA = {amqp_gen_consumer, start_link, [ConsumerModule, ConsumerArgs, Identity]},
+    ChildSpec = #{id => gen_consumer, start => ChildStartMFA,
+                  restart => transient, significant => true,
+                  shutdown => ?WORKER_WAIT, type => worker, modules => [amqp_gen_consumer]},
+    {ok, {SupFlags, [ChildSpec]}}.
